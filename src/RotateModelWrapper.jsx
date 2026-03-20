@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 
 export function RotateModelWrapper({
-  sensitivity = 0.03,
+  sensitivity = 0.01,
   damping = 0.1,
   // Limits in Radians: 0 is level, -1.5 is looking at top, etc.
   minPitch = -Math.PI / 2, 
@@ -43,7 +43,7 @@ export function RotateModelWrapper({
   const dy = e.clientY - s.lastY;
 
   s.velX = dx * sensitivity;
-  s.velY = -dy * sensitivity; // Added minus sign to reverse vertical drag
+  s.velY = dy * sensitivity; // Added minus sign to reverse vertical drag
 
   s.lastX = e.clientX;
   s.lastY = e.clientY;
