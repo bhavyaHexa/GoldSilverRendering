@@ -6,30 +6,32 @@ import { color, float } from 'three/tsl';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 
 // Local Imports
-import { Model } from './Model'; 
-import { TSLEffects } from './TSLEffects'; 
+import { Model } from './Model';
+import { TSLEffects } from './TSLEffects';
 import { RotateModelWrapper } from './RotateModelWrapper';
 
 // 1. Dedicated Ground Component using TSL for WebGPU
 function Ground() {
   const material = new MeshPhysicalNodeMaterial({
-    colorNode: color('#ffffff'),
+    colorNode: color('#6e0e0e'),
     roughnessNode: float(0.88),
     metalnessNode: float(0),
-    transparent: false,
+    transparent: true,
     opacity: 1,
-    depthWrite: true,
+    depthWrite: false,
     depthTest: true,
+    emissi veNode: color('#ffffff'),
+
   });
 
   return (
-    <mesh 
-      rotation={[-Math.PI / 2, 0, 0]} 
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
       position={[0, -4, 0]} // Adjusted slightly below your model group's -5
       receiveShadow
     >
       {/* Plane geometry 10x10 as requested */}
-      <planeGeometry args={[50 ,50 ,50]} />
+      <planeGeometry args={[50, 50, 50]} />
       <primitive object={material} attach="material" />
     </mesh>
   );
@@ -63,50 +65,61 @@ export default function App() {
   }, []);
 
   return (
-    <Canvas 
-       camera={{ position: [0, 0, 30], fov: 60 }}
-      gl={async ({ canvas }) => {
-        const renderer = new THREE.WebGPURenderer({ 
-          canvas, 
-          antialias: false, 
-          alpha: true,
-          requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
-        });
+    <div style={{
+      background: ' #ffffff', width: '100%', height: '100%'
+    }}>
 
-        renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        await renderer.init();
-        return renderer;
-      }}
-    >
-      <color attach="background" args={['0xffffff']} />
+      <Canvas
+        style={{ background: '#ffffff' }}
+        camera={{ position: [0, 0, 30], fov: 60 }}
+        gl={async ({ canvas }) => {
+          const renderer = new THREE.WebGPURenderer({
+            canvas,
+            antialias: false,
+            alpha: true,
+            requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
+          });
 
-      <Suspense fallback={null}>
-        <Environment 
-          files={"/env/env_metal_001_d01c4504e0.hdr"} 
-          environmentIntensity={1.0} 
-        /> 
 
-        <RotateModelWrapper minPitch={-0.2} maxPitch={1}>
-          <group rotation={[1.42, Math.PI, 0]} position={[0, 0, -5]}>
-            <Model modelPath={modelPath} />
-          </group>
-          
-          {/* 2. Added the Ground here to rotate with the wrapper if needed, 
+          await renderer.init();
+
+          renderer.toneMapping = THREE.NoToneMapping;
+          renderer.outputColorSpace = THREE.SRGBColorSpace;
+          renderer.setClearColor(0x000000, 0);
+          return renderer;
+        }}
+      >
+
+
+        <Suspense fallback={null}>
+          <Environment
+            files={"/env/env_metal_001_d01c4504e0.hdr"}
+            environmentIntensity={0.9}
+          />
+
+          <RotateModelWrapper minPitch={-0.2} maxPitch={1}>
+            <group rotation={[1.42, Math.PI, 0]} position={[0, 0, -5]}>
+              <Model modelPath={modelPath} />
+            </group>
+
+            {/* 2. Added the Ground here to rotate with the wrapper if needed, 
               or move outside if you want the floor static */}
-          <Ground />
-        </RotateModelWrapper>
-      </Suspense>
+            {/* <Ground /> */}
+          </RotateModelWrapper>
+        </Suspense>
 
-      <CameraControls
-        ref={controlsRef}
-        makeDefault
-        azimuthRotateSpeed={0}
-        polarRotateSpeed={0}
-        minDistance={0}
-        maxDistance={50}
-      />
+        <CameraControls
+          ref={controlsRef}
+          makeDefault
+          azimuthRotateSpeed={0}
+          polarRotateSpeed={0}
+          minDistance={0}
+          maxDistance={50}
+        />
 
-      <TSLEffects /> 
-    </Canvas>
+        <TSLEffects />
+      </Canvas>
+
+    </div>
   );
 }
