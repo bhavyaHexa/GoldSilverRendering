@@ -1,30 +1,70 @@
-import React, { Suspense, useRef, useEffect } from 'react';
+import React, { Suspense, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Environment } from '@react-three/drei';
 import * as THREE from "three/webgpu";
+import { color, float } from 'three/tsl';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 
 // Local Imports
 import { Model } from './Model'; 
 import { TSLEffects } from './TSLEffects'; 
 import { RotateModelWrapper } from './RotateModelWrapper';
 
+// 1. Dedicated Ground Component using TSL for WebGPU
+function Ground() {
+  const material = new MeshPhysicalNodeMaterial({
+    colorNode: color('#ffffff'),
+    roughnessNode: float(0.88),
+    metalnessNode: float(0),
+    transparent: false,
+    opacity: 1,
+    depthWrite: true,
+    depthTest: true,
+  });
+
+  return (
+    <mesh 
+      rotation={[-Math.PI / 2, 0, 0]} 
+      position={[0, -4, 0]} // Adjusted slightly below your model group's -5
+      receiveShadow
+    >
+      {/* Plane geometry 10x10 as requested */}
+      <planeGeometry args={[50 ,50 ,50]} />
+      <primitive object={material} attach="material" />
+    </mesh>
+  );
+}
+
 export default function App() {
   const controlsRef = useRef();
 
-  
-  // This ensures that as soon as the component loads, 
-  // the camera is placed exactly at Z=25 looking at the center.
-  // useEffect(() => {
-  //   if (controlsRef.current) {
-  //     // setLookAt(eyeX, eyeY, eyeZ, targetX, targetY, targetZ, transition?)
-  //     controlsRef.current.setLookAt(0, 0, 25, 0, 0, 0, false);
-  //   }
-  // }, []);
+  // 1. URL-based routing logic
+  const [modelPath, setModelPath] = React.useState(() => {
+    const path = window.location.pathname.slice(1).replace('.glb', '');
+    return path ? `/${path}.glb` : '/7.glb';
+  });
+
+  React.useEffect(() => {
+    const handleLocationChange = () => {
+      const path = window.location.pathname.slice(1).replace('.glb', '');
+      setModelPath(path ? `/${path}.glb` : '/7.glb');
+    };
+
+    window.addEventListener('popstate', handleLocationChange);
+    // Also listen for custom events if navigation happens via script
+    window.addEventListener('pushstate', handleLocationChange);
+    window.addEventListener('replacestate', handleLocationChange);
+
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('pushstate', handleLocationChange);
+      window.removeEventListener('replacestate', handleLocationChange);
+    };
+  }, []);
 
   return (
     <Canvas 
-      // Set the initial R3F camera position
-      camera={{ position: [0, 0, 30], fov: 60 }}
+       camera={{ position: [0, 0, 30], fov: 60 }}
       gl={async ({ canvas }) => {
         const renderer = new THREE.WebGPURenderer({ 
           canvas, 
@@ -32,27 +72,28 @@ export default function App() {
           alpha: true,
           requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
         });
+
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
         await renderer.init();
         return renderer;
       }}
     >
-      <color attach="background" args={['white']} />
+      <color attach="background" args={['0xffffff']} />
 
       <Suspense fallback={null}>
-        <Environment files={"/env/env_metal_001_d01c4504e0.hdr"} /> 
+        <Environment 
+          files={"/env/env_metal_001_d01c4504e0.hdr"} 
+          environmentIntensity={1.0} 
+        /> 
 
-        <RotateModelWrapper 
-          minPitch={-0.2} 
-          maxPitch={1.5}
-        >
-          <group rotation={[1.42, Math.PI, 0]} position={[0 , 0 ,-5]}>
-            <Model />
+        <RotateModelWrapper minPitch={-0.2} maxPitch={1}>
+          <group rotation={[1.42, Math.PI, 0]} position={[0, 0, -5]}>
+            <Model modelPath={modelPath} />
           </group>
-
-          {/* <mesh position={[0, -3.5, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[100, 100]}/>
-            <meshBasicMaterial color={0xffffff}/>
-          </mesh> */}
+          
+          {/* 2. Added the Ground here to rotate with the wrapper if needed, 
+              or move outside if you want the floor static */}
+          <Ground />
         </RotateModelWrapper>
       </Suspense>
 
@@ -61,7 +102,6 @@ export default function App() {
         makeDefault
         azimuthRotateSpeed={0}
         polarRotateSpeed={0}
-        // Optional: constrain zooming so they stay near that Z=25 sweet spot
         minDistance={0}
         maxDistance={50}
       />

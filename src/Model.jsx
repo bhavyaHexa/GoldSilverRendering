@@ -1,46 +1,50 @@
 import React, { useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
-import * as THREE from 'three';
-// Import Node-based materials for WebGPU
+import * as THREE from 'three/webgpu';
 import { MeshPhysicalNodeMaterial } from 'three/webgpu';
+// 🔥 FIX: color and float must be imported from three/tsl
+import { float, color, vec3 } from 'three/tsl'; 
 import { useControls } from 'leva';
-import { color, uniform, mix, texture } from 'three/tsl';
 
-export const Model = () => {
-  const { metalColor, aoIntensity } = useControls({
-    metalColor: '#c9c9c9', 
+export const Model = ({ modelPath = '/7.glb' }) => {
+  const { nodes } = useGLTF(modelPath);
 
-    // '#e9c58b'
-    aoIntensity: { value: 1.2, min: 0, max: 5, step: 0.1 },
+  const { metalColor, aoIntensity, roughnessBias } = useControls("Jewelry Materials", {
+    metalColor: '#929090',
+    aoIntensity: { value: 2.5, min: 0, max: 5 },
+    roughnessBias: { value: 0.0, min: -0.02, max: 0.1, step: 0.001 },
   });
 
-  const { nodes } = useGLTF('/7.glb');
-
-  // --- TSL Metal Material ---
-  const metalMaterial = useMemo(() => {
+  // LUXURY SILVER: Ultra low roughness + Clearcoat
+  const silverMaterial = useMemo(() => {
     const mat = new MeshPhysicalNodeMaterial();
-    
-    // Using TSL uniforms so changes in Leva reflect instantly in the shader
+    // Using vec3 for color can sometimes be more stable in TSL
     mat.colorNode = color(metalColor);
-    mat.metalnessNode = uniform(1);
-    mat.roughnessNode = uniform(0); 
-    
+    mat.metalnessNode = float(1.0);
+    mat.roughnessNode = float(0.01).add(float(roughnessBias)).clamp(0, 1);
+    mat.clearcoatNode = float(1.0); 
+    mat.clearcoatRoughnessNode = float(0.01);
+    mat.specularIntensityNode = float(2.0);
     return mat;
-  }, [metalColor]);
+  }, [metalColor, roughnessBias]);
 
-  // --- TSL Diamond Material ---
+  // BLACK METAL (Metal_White_26): Specifically handles AO
+  const blackMetalMaterial = useMemo(() => {
+    const mat = new MeshPhysicalNodeMaterial();
+    mat.colorNode = color('#4b4b4b'); 
+    mat.metalnessNode = float(1.0);
+    mat.roughnessNode = float(0.05);
+    // lightIntensityNode handles the 'occlusion' multiplier in WebGPU
+    mat.lightIntensityNode = float(aoIntensity); 
+    return mat;
+  }, [aoIntensity]);
+
   const diamondMaterial = useMemo(() => {
     const mat = new MeshPhysicalNodeMaterial();
-    
-    mat.colorNode = color('#ffffff');
-    mat.transmissionNode = uniform(1); // Enable glass behavior
-    mat.thicknessNode = uniform(1.5);
-    mat.iorNode = uniform(2.4);
-    mat.roughnessNode = uniform(0);
-    
-    // Emissive TSL Node for Bloom
-    mat.emissiveNode = color('#ffffff').mul(uniform(0.6));
-    
+    mat.transmissionNode = float(1.0);
+    mat.iorNode = float(2.417);
+    mat.thicknessNode = float(1.0);
+    mat.roughnessNode = float(0.0);
     return mat;
   }, []);
 
@@ -49,40 +53,24 @@ export const Model = () => {
       {Object.values(nodes).map((node) => {
         if (!node.isMesh) return null;
 
-        // Metal logic
-        if (node.name.startsWith('M')) {
-          // If the model has an AO map, we hook it into the TSL graph
-          if (node.material?.aoMap) {
-            metalMaterial.aoMap = node.material.aoMap;
-            metalMaterial.aoMapIntensity = aoIntensity;
-          }
+        let targetMaterial = silverMaterial;
 
-          return (
-            <mesh 
-              key={node.uuid} 
-              geometry={node.geometry} 
-              material={metalMaterial} 
-              castShadow 
-              receiveShadow 
-            />
-          );
+        // Specific Logic for Metal_White_26 AO
+        if (node.name === 'Metal_White_26') {
+          targetMaterial = blackMetalMaterial;
+        } else if (node.name.startsWith('D')) {
+          targetMaterial = diamondMaterial;
         }
 
-        // Diamond logic
-        if (node.name.startsWith('D')) {
-          return (
-            <mesh 
-              key={node.uuid} 
-              geometry={node.geometry} 
-              material={diamondMaterial} 
-              position={node.position}
-              rotation={node.rotation}
-              scale={node.scale}
-            />
-          );
-        }
-
-        return null;
+        return (
+          <mesh 
+            key={node.uuid} 
+            geometry={node.geometry} 
+            material={targetMaterial} 
+            castShadow 
+            receiveShadow 
+          />
+        );
       })}
     </group>
   );
