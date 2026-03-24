@@ -20,7 +20,7 @@ function Ground() {
     opacity: 1,
     depthWrite: false,
     depthTest: true,
-    emissi veNode: color('#ffffff'),
+    emissiveNode: color('#ffffff'),
 
   });
 
