@@ -37,32 +37,32 @@ export default function App() {
 
   return (
     <div style={{ background: '#ffffff', width: '100vw', height: '100vh' }}>
-     <Canvas
-  // Lower FOV (12) flattens the spheres like Image 2
-  // Higher Z position (85) compensates for the zoom to keep the ring in frame
-  camera={{ 
-    position:[0,0,80], 
-    fov: 12,
-    near: 0.1,
-    far: 1000 
-  }}
-  gl={async ({ canvas }) => {
-    const renderer = new THREE.WebGPURenderer({
-      canvas,
-      antialias: true, // Switched to true for smoother jewelry edges
-      alpha: true,
-      requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
-    });
+      <Canvas
+        // Lower FOV (12) flattens the spheres like Image 2
+        // Higher Z position (85) compensates for the zoom to keep the ring in frame
+        camera={{
+          position: [0, 10, 100],
+          fov: 12,
+          near: 0.1,
+          far: 1000
+        }}
+        gl={async ({ canvas }) => {
+          const renderer = new THREE.WebGPURenderer({
+            canvas,
+            antialias: true, // Switched to true for smoother jewelry edges
+            alpha: true,
+            requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
+          });
 
-    await renderer.init();
-    
-    renderer.toneMapping = THREE.NoToneMapping;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setClearColor(0xffffff, 1);
+          await renderer.init();
 
-    return renderer;
-  }}
->
+          renderer.toneMapping = THREE.NoToneMapping;
+          renderer.outputColorSpace = THREE.SRGBColorSpace;
+          renderer.setClearColor(0xffffff, 1);
+
+          return renderer;
+        }}
+      >
         <Suspense fallback={null}>
           <Environment
             files={"/env/env_metal_001_d01c4504e0.hdr"}
@@ -76,13 +76,13 @@ export default function App() {
               <Model modelPath={modelPath} />
             </group>
 
-            <mesh position={[0, -4 , 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[ 50 , 50 , 50 ]} /> 
-            <meshPhysicalMaterial color={"#ffffff"} />
-          </mesh>
+            <mesh position={[0, -4, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[50, 50, 50]} />
+              <meshPhysicalMaterial color={"#ffffff"} />
+            </mesh>
           </RotateModelWrapper>
 
-          
+
         </Suspense>
 
 
