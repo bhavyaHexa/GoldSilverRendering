@@ -8,6 +8,9 @@ export function RotateModelWrapper({
   // Limits in Radians: 0 is level, -1.5 is looking at top, etc.
   minPitch = -Math.PI / 2,
   maxPitch = 0.1, // Small positive value allows a tiny bit of "under-tilt"
+  minZoom = 0.5,
+  maxZoom = 5,
+  zoomSpeed = 0.002,
   children,
 }) {
   const groupRef = useRef();
@@ -21,6 +24,8 @@ export function RotateModelWrapper({
     velY: 0,
     rotX: 0, // Pitch
     rotY: 0, // Yaw
+    zoom: 1,
+    targetZoom: 1,
   }).current;
 
   useEffect(() => {
@@ -54,13 +59,24 @@ export function RotateModelWrapper({
       try { canvas.releasePointerCapture(e.pointerId); } catch (_) { }
     };
 
+    const onWheel = (e) => {
+      e.preventDefault();
+      // Adjust target zoom based on wheel delta
+      s.targetZoom -= e.deltaY * zoomSpeed;
+      // Clamp zoom
+      s.targetZoom = Math.max(minZoom, Math.min(maxZoom, s.targetZoom));
+    };
+
     canvas.addEventListener('pointerdown', onDown);
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    
     return () => {
       canvas.removeEventListener('pointerdown', onDown);
       canvas.removeEventListener('pointermove', onMove);
       canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('wheel', onWheel);
     };
   }, [gl, sensitivity]);
 
@@ -80,6 +96,10 @@ export function RotateModelWrapper({
     // Apply damping
     s.velX *= (1 - damping);
     s.velY *= (1 - damping);
+
+    // Apply smooth zooming
+    s.zoom += (s.targetZoom - s.zoom) * (damping * 1.5);
+    groupRef.current.scale.set(s.zoom, s.zoom, s.zoom);
   });
 
   return <group ref={groupRef}>{children}</group>;

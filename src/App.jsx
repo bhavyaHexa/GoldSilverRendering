@@ -1,59 +1,30 @@
-import React, { Suspense, useRef } from 'react';
+import React, { Suspense, useRef, useState, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { CameraControls, Environment } from '@react-three/drei';
 import * as THREE from "three/webgpu";
-import { color, float } from 'three/tsl';
-import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 
 // Local Imports
 import { Model } from './Model';
 import { TSLEffects } from './TSLEffects';
 import { RotateModelWrapper } from './RotateModelWrapper';
 
-// 1. Dedicated Ground Component using TSL for WebGPU
-function Ground() {
-  const material = new MeshPhysicalNodeMaterial({
-    colorNode: color('#6e0e0e'),
-    roughnessNode: float(0.88),
-    metalnessNode: float(0),
-    transparent: true,
-    opacity: 1,
-    depthWrite: false,
-    depthTest: true,
-    emissiveNode: color('#ffffff'),
-
-  });
-
-  return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, -4, 0]} // Adjusted slightly below your model group's -5
-      receiveShadow
-    >
-      {/* Plane geometry 10x10 as requested */}
-      <planeGeometry args={[50, 50, 50]} />
-      <primitive object={material} attach="material" />
-    </mesh>
-  );
-}
 
 export default function App() {
   const controlsRef = useRef();
 
   // 1. URL-based routing logic
-  const [modelPath, setModelPath] = React.useState(() => {
+  const [modelPath, setModelPath] = useState(() => {
     const path = window.location.pathname.slice(1).replace('.glb', '');
     return path ? `/${path}.glb` : '/7.glb';
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleLocationChange = () => {
       const path = window.location.pathname.slice(1).replace('.glb', '');
       setModelPath(path ? `/${path}.glb` : '/7.glb');
     };
 
     window.addEventListener('popstate', handleLocationChange);
-    // Also listen for custom events if navigation happens via script
     window.addEventListener('pushstate', handleLocationChange);
     window.addEventListener('replacestate', handleLocationChange);
 
@@ -65,61 +36,60 @@ export default function App() {
   }, []);
 
   return (
-    <div style={{
-      background: ' #ffffff', width: '100%', height: '100%'
-    }}>
+    <div style={{ background: '#ffffff', width: '100vw', height: '100vh' }}>
+     <Canvas
+  // Lower FOV (12) flattens the spheres like Image 2
+  // Higher Z position (85) compensates for the zoom to keep the ring in frame
+  camera={{ 
+    position:[0,0,80], 
+    fov: 12,
+    near: 0.1,
+    far: 1000 
+  }}
+  gl={async ({ canvas }) => {
+    const renderer = new THREE.WebGPURenderer({
+      canvas,
+      antialias: true, // Switched to true for smoother jewelry edges
+      alpha: true,
+      requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
+    });
 
-      <Canvas
-        style={{ background: '#ffffff' }}
-        camera={{ position: [0, 0, 30], fov: 60 }}
-        gl={async ({ canvas }) => {
-          const renderer = new THREE.WebGPURenderer({
-            canvas,
-            antialias: false,
-            alpha: true,
-            requiredLimits: { maxColorAttachmentBytesPerSample: 128 }
-          });
+    await renderer.init();
+    
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.setClearColor(0xffffff, 1);
 
-
-          await renderer.init();
-
-          renderer.toneMapping = THREE.NoToneMapping;
-          renderer.outputColorSpace = THREE.SRGBColorSpace;
-          renderer.setClearColor(0x000000, 0);
-          return renderer;
-        }}
-      >
-
-
+    return renderer;
+  }}
+>
         <Suspense fallback={null}>
           <Environment
             files={"/env/env_metal_001_d01c4504e0.hdr"}
             environmentIntensity={0.9}
           />
 
-          <RotateModelWrapper minPitch={-0.2} maxPitch={1}>
+          <color attach="background" args={[0xffffff]} />
+
+          <RotateModelWrapper minPitch={-0.2} maxPitch={1.5}>
             <group rotation={[1.42, Math.PI, 0]} position={[0, 0, -5]}>
               <Model modelPath={modelPath} />
             </group>
 
-            {/* 2. Added the Ground here to rotate with the wrapper if needed, 
-              or move outside if you want the floor static */}
-            {/* <Ground /> */}
+            <mesh position={[0, -4 , 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[ 50 , 50 , 50 ]} /> 
+            <meshPhysicalMaterial color={"#ffffff"} />
+          </mesh>
           </RotateModelWrapper>
+
+          
         </Suspense>
 
-        <CameraControls
-          ref={controlsRef}
-          makeDefault
-          azimuthRotateSpeed={0}
-          polarRotateSpeed={0}
-          minDistance={0}
-          maxDistance={50}
-        />
+
 
         <TSLEffects />
-      </Canvas>
 
+      </Canvas>
     </div>
   );
 }
